@@ -14,7 +14,9 @@ const rider_deliveries_1 = require("./routes/rider-deliveries");
 const rider_documents_1 = require("./routes/rider-documents");
 const rider_location_1 = require("./routes/rider-location");
 const rider_profile_1 = require("./routes/rider-profile");
+const rider_push_token_1 = require("./routes/rider-push-token");
 const rider_respond_offer_1 = require("./routes/rider-respond-offer");
+const rider_submit_application_1 = require("./routes/rider-submit-application");
 const rider_update_delivery_1 = require("./routes/rider-update-delivery");
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)({
@@ -34,6 +36,8 @@ app.use('/rider-respond-offer', rider_respond_offer_1.riderRespondOfferRouter);
 app.use('/rider-update-delivery', rider_update_delivery_1.riderUpdateDeliveryRouter);
 app.use('/rider-cancel-delivery', rider_cancel_delivery_1.riderCancelDeliveryRouter);
 app.use('/rider-profile', rider_profile_1.riderProfileRouter);
+app.use('/rider-push-token', rider_push_token_1.riderPushTokenRouter);
+app.use('/rider-submit-application', rider_submit_application_1.riderSubmitApplicationRouter);
 app.use('/rider-documents', rider_documents_1.riderDocumentsRouter);
 app.use('/rider-delete', rider_delete_1.riderDeleteRouter);
 app.use('/geo', geo_1.geoRouter);

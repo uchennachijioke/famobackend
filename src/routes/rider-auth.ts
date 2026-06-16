@@ -17,9 +17,44 @@ riderAuthRouter.post(
       password?: string;
       full_name?: string;
       phone?: string;
+      accessToken?: string;
     };
 
     const action = body.action;
+
+    // Reset/change password. Ownership of the email is proven by a Supabase Auth
+    // access token issued after the rider verified the 6-digit OTP. We resolve
+    // the confirmed email from that token, then re-hash the new password on the
+    // riders row. Handled before the credentials guard because the body carries
+    // no email/password pair — only the OTP-issued access token + new password.
+    if (action === 'reset_password') {
+      const accessToken = body.accessToken;
+      const newPassword = body.password;
+      if (!accessToken || !newPassword) {
+        return res.status(400).json({ error: 'missing_fields' });
+      }
+      if (newPassword.length < 8) {
+        return res.status(400).json({ error: 'weak_password' });
+      }
+      const { data: userData, error: userErr } = await admin.auth.getUser(accessToken);
+      const verifiedEmail = userData?.user?.email?.trim().toLowerCase();
+      if (userErr || !verifiedEmail) {
+        return res.status(400).json({ error: 'invalid_token' });
+      }
+      const { data, error } = await admin.rpc('rider_reset_password', {
+        p_email: verifiedEmail,
+        p_password: newPassword,
+      });
+      if (error) {
+        const msg = error.message.includes('weak_password') ? 'weak_password' : 'reset_failed';
+        return res.status(400).json({ error: msg });
+      }
+      if (data !== true) {
+        return res.status(404).json({ error: 'rider_not_found' });
+      }
+      return res.status(200).json({ ok: true });
+    }
+
     const email = body.email?.trim().toLowerCase();
     const password = body.password;
 
