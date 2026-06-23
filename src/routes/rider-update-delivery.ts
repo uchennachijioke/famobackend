@@ -1,5 +1,6 @@
 import { Router } from 'express';
 
+import { APP_COMMISSION_RATE, riderNetAmount } from '../commission';
 import { asyncHandler } from '../middleware/async-handler';
 import { requireRider } from '../middleware/rider-auth';
 import { admin } from '../supabase';
@@ -29,7 +30,7 @@ riderUpdateDeliveryRouter.post(
 
     const { data: current, error: readErr } = await admin
       .from('deliveries')
-      .select('id, rider_id, status')
+      .select('id, rider_id, status, price')
       .eq('id', delivery_id)
       .maybeSingle();
 
@@ -44,13 +45,27 @@ riderUpdateDeliveryRouter.post(
         .json({ error: 'invalid_transition', from: current.status, to: status });
     }
 
+    // Persist the authoritative net split at the moment the job completes, so the
+    // rider app and admin dashboard both read the stored amount instead of each
+    // recomputing price * (1 - rate). Stored once on the `delivered` transition
+    // and immutable thereafter (delivered is terminal). The rate is stored
+    // per-row so historical earnings stay correct if the commission ever changes.
+    const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
+    if (status === 'delivered') {
+      const net = riderNetAmount(current.price as number | null);
+      if (net !== null) {
+        patch.net_amount = net;
+        patch.commission_rate = APP_COMMISSION_RATE;
+      }
+    }
+
     const { data: updated, error: updErr } = await admin
       .from('deliveries')
-      .update({ status, updated_at: new Date().toISOString() })
+      .update(patch)
       .eq('id', delivery_id)
       .eq('rider_id', rider_id)
       .eq('status', current.status)
-      .select('id, status, rider_id, pickup_address, dropoff_address, price, updated_at')
+      .select('id, status, rider_id, pickup_address, dropoff_address, price, net_amount, commission_rate, updated_at')
       .maybeSingle();
 
     if (updErr) return res.status(400).json({ error: updErr.message });

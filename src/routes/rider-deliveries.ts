@@ -54,6 +54,23 @@ riderDeliveriesRouter.post(
       return res.status(200).json({ ok: true, delivery: delivery ?? null });
     }
 
+    // The rider's completed-delivery history, the live source of truth for the
+    // earnings view (replaces the per-device AsyncStorage log). Only delivered
+    // jobs count toward earnings — matching the admin dashboard's
+    // `status = 'delivered'` rule. `updated_at` is the completion timestamp
+    // (set on the delivered transition) the client uses to bucket by day/week.
+    if (action === 'history') {
+      const { data, error } = await admin
+        .from('deliveries')
+        .select(`${DELIVERY_SELECT}, net_amount, commission_rate, updated_at`)
+        .eq('rider_id', rider_id)
+        .eq('status', 'delivered')
+        .order('updated_at', { ascending: false })
+        .limit(200);
+      if (error) return res.status(400).json({ error: error.message });
+      return res.status(200).json({ ok: true, deliveries: data ?? [] });
+    }
+
     // Live count of every order currently assigned to this rider (accepted or
     // picked_up). The dashboard polls this so the rider sees how many active
     // jobs they hold, even though they are worked one at a time.
