@@ -54,6 +54,24 @@ riderDeliveriesRouter.post(
       return res.status(200).json({ ok: true, delivery: delivery ?? null });
     }
 
+    // Live count of every order currently assigned to this rider (accepted or
+    // picked_up). The dashboard polls this so the rider sees how many active
+    // jobs they hold, even though they are worked one at a time.
+    if (action === 'active_deliveries') {
+      const { data, error } = await admin
+        .from('deliveries')
+        .select('id, status')
+        .eq('rider_id', rider_id)
+        .in('status', ['accepted', 'picked_up']);
+      if (error) return res.status(400).json({ error: error.message });
+      const rows = data ?? [];
+      return res.status(200).json({
+        ok: true,
+        count: rows.length,
+        ids: rows.map((row) => row.id),
+      });
+    }
+
     return res.status(400).json({ error: 'unknown_action' });
   }),
 );
